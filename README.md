@@ -22,7 +22,7 @@ You can find these datasets used in the paper at [Quark](https://pan.quark.cn/s/
 
 Run the code by
 ```bash
-python main.py --i_d 0 --missrate 0.4 --protorate 0.3 --r 0.5
+python main.py --i_d 0 --missrate 0.3
 ```
 ## Citation
 
