@@ -3,14 +3,12 @@ import time
 import torch
 import logging
 import sys
-import torch.nn as nn
 from Nmetrics import evaluate
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
 import argparse
 import random
-import torch.nn.functional as F
 import load_data as loader
 from network import Network
 from loss import Cross_inscl_loss, Noise_robust_loss
@@ -18,8 +16,7 @@ from datasets import Data_Sampler, TrainDataset_Com, TrainDataset_All
 from sklearn.cluster import KMeans
 from utils import get_Similarity, euclidean_dist
 import matplotlib
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
+
 
 matplotlib.use('Agg')
 
@@ -30,8 +27,7 @@ def seed_everything(SEED=42):
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
-    torch.backends.cudnn.benchmark = True  # keep True if all the input have same size.
-
+    torch.backends.cudnn.benchmark = True
 
 def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
     train_dataset = TrainDataset_Com(X_com, Y_com)
@@ -95,10 +91,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
         loss_list_ins = []
         loss_list_Rob = []
         Prototypes = [[] for _ in range(args.V)]
-        Feature = [[] for _ in range(args.V)]
-        Proto_index = [[] for _ in range(args.V)]
 
-       
         for v in range(args.V):
             x[v] = torch.squeeze(x[v]).to(device)
             y[v] = torch.squeeze(y[v]).to(device)
@@ -138,7 +131,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             if Pk > size:
                 Pk = size
             initial_prototypes = Feature[:Pk]
-            
+
             max_iterations = 10
             tolerance = 1e-5
             for iteration in range(max_iterations):
@@ -207,7 +200,6 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             align_out1 = []
             for i in range(aligen_num):
                 idx = torch.argsort(C[i, :])
-                # C[:, idx[0]] = float("inf")
                 align_out0.append((prov1[i, :].detach().cpu()).numpy())
                 align_out1.append((prov2[idx[0], :].detach().cpu()).numpy())
             Proto_Align[v1], Proto_Align[v2] = torch.from_numpy(np.array(align_out0)).to(device), torch.from_numpy(
@@ -226,7 +218,6 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             xs[v] = torch.squeeze(xs[v]).to(device)
             Proto_Align[v] = torch.squeeze(Proto_Align[v]).to(device)
         cossim_mat = []
-        cossim_mat1 = []
         for v in range(args.V):
             sim_mat = get_Similarity(Proto_Align[v], xs[v])
             sim_mat1 = get_Similarity(xs[v], xs[v])
@@ -243,16 +234,16 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             for v in range(args.V):
                 imfu.append([])
             bc = 0
+            a = 0
             for v in range(args.V):
                 if missindex[final_batch * batch_idx + i, v] == 0:
                     vec_tmp = cossim_mat[v][i]
-
                     _, indices = torch.sort(vec_tmp, descending=True)
-
                     for v in range(args.V):
                         imfu[v] = Proto_Align[v][indices[0]]
                         bc = bc + Proto_Align[v][indices[0]]
-                    bc = bc / args.V
+                        a = a+1
+                    bc = bc / a
                     xs[v][i] = bc
 
         for v in range(args.V):
@@ -263,7 +254,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
     return fea_final, epoch_time
 
 
-"""  python main.py --i_d 0 --missrate 0.4 --protorate 0.3 --r 0.5"""
+"""  python main.py --i_d 0 --missrate 0.3 """
 i_d = {
     0: "Caltech101_7",
     1: "LandUse_21",
@@ -304,7 +295,6 @@ parser.add_argument('--Batch_Rob', default=Batch_Rob, type=int)
 parser.add_argument('--lr_pre', default=lr_pre, type=float)
 parser.add_argument('--lr_align', default=lr_align, type=float)
 parser.add_argument('--para_loss', default=para_loss, type=float)
-
 parser.add_argument('--pretrain_epochs', default=pre_epochs, type=int)
 parser.add_argument('--ProtoRobs_epochs', default=ProtoRobs_epochs, type=int)
 parser.add_argument("--feature_dim", default=feature_dim)
@@ -337,7 +327,7 @@ def main():
     fh = logging.FileHandler(os.path.join(path, log_filename))
     fh.setFormatter(logging.Formatter(log_format))
     logging.getLogger().addHandler(fh)
-    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)  # 加载数据
+    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)   
     Miss_vecs = []
     for v in range(args.V):
         Miss_vecs.append(missindex[:, v])
@@ -348,10 +338,8 @@ def main():
     Num_C = (Protonum * protorate)
     c_num = Num_C // n
     proto_Num = [[] for _ in range(n)]
-    ex_c = Num_C % n
     for i in range(n):
         proto_Num[i] = c_num
-
     logging.info(args)
     logging.info("--------r:{}--------".format(r))
     logging.info("--------missrate:{}--------".format(missrate))
@@ -385,7 +373,7 @@ def main():
             print(epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100)
             list = [epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100]
             data = pd.DataFrame([list])
-            data.to_csv(path + log_filename, mode='a', header=False, index=False)   
+            data.to_csv(path + log_filename, mode='a', header=False, index=False)
 
         acc_list.append(acc * 100)
         nmi_list.append(nmi * 100)
