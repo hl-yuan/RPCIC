@@ -2,6 +2,8 @@
 
 This repo contains the code and data of our ACM MM'2024 paper "Robust Prototype Completion for Incomplete Multi-view Clustering". If you have any questions about the source code, please contact: hl_yuan0822@163.com.
 
+![framework](figure//Overview.png)
+
 ## Requirements
 
 pytorch==1.2.0 
