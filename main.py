@@ -98,7 +98,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
         Feature = [[] for _ in range(args.V)]
         Proto_index = [[] for _ in range(args.V)]
 
-        # 创建一个列表以存储提取的数据
+       
         for v in range(args.V):
             x[v] = torch.squeeze(x[v]).to(device)
             y[v] = torch.squeeze(y[v]).to(device)
@@ -138,7 +138,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             if Pk > size:
                 Pk = size
             initial_prototypes = Feature[:Pk]
-            # 设置收敛条件
+            
             max_iterations = 10
             tolerance = 1e-5
             for iteration in range(max_iterations):
@@ -385,7 +385,7 @@ def main():
             print(epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100)
             list = [epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100]
             data = pd.DataFrame([list])
-            data.to_csv(path + log_filename, mode='a', header=False, index=False)  # mode设为a,就可以向csv文件追加数据了
+            data.to_csv(path + log_filename, mode='a', header=False, index=False)   
 
         acc_list.append(acc * 100)
         nmi_list.append(nmi * 100)
