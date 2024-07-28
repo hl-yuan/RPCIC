@@ -266,11 +266,6 @@ i_d = {
     7: "AWA",
 }
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-pre_epochs = 200
-ProtoRobs_epochs = 100
-protorate = 0.3
-missrate = 0.3
-r = 0.5
 lr_pre = 0.0005
 lr_align = 0.0001
 para_loss = [1e-4, 1e-2]
@@ -281,9 +276,9 @@ final_batch = 256
 seed_everything(42)
 parser = argparse.ArgumentParser(description='main_each_epoch')
 parser.add_argument('--i_d', type=int, default='0')
-parser.add_argument("--protorate", default=protorate, type=float)
-parser.add_argument("--r", default=r, type=float)
-parser.add_argument("--missrate", default=missrate, type=float)
+parser.add_argument("--protorate", default=0.3, type=float)
+parser.add_argument("--r", default=0.5, type=float)
+parser.add_argument("--missrate", default=0.3, type=float)
 args = parser.parse_args()
 i_d = i_d[args.i_d]
 print(i_d)
@@ -295,8 +290,8 @@ parser.add_argument('--Batch_Rob', default=Batch_Rob, type=int)
 parser.add_argument('--lr_pre', default=lr_pre, type=float)
 parser.add_argument('--lr_align', default=lr_align, type=float)
 parser.add_argument('--para_loss', default=para_loss, type=float)
-parser.add_argument('--pretrain_epochs', default=pre_epochs, type=int)
-parser.add_argument('--ProtoRobs_epochs', default=ProtoRobs_epochs, type=int)
+parser.add_argument('--pretrain_epochs', default=200, type=int)
+parser.add_argument('--ProtoRobs_epochs', default=100, type=int)
 parser.add_argument("--feature_dim", default=feature_dim)
 parser.add_argument("--V", default=data_para['V'])
 parser.add_argument("--K", default=data_para['K'])
@@ -327,7 +322,7 @@ def main():
     fh = logging.FileHandler(os.path.join(path, log_filename))
     fh.setFormatter(logging.Formatter(log_format))
     logging.getLogger().addHandler(fh)
-    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)   
+    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)
     Miss_vecs = []
     for v in range(args.V):
         Miss_vecs.append(missindex[:, v])
@@ -335,14 +330,14 @@ def main():
 
     Protonum = len(X_com[0])
     n = args.N // Batch_Rob
-    Num_C = (Protonum * protorate)
+    Num_C = (Protonum * args.protorate)
     c_num = Num_C // n
     proto_Num = [[] for _ in range(n)]
     for i in range(n):
         proto_Num[i] = c_num
     logging.info(args)
-    logging.info("--------r:{}--------".format(r))
-    logging.info("--------missrate:{}--------".format(missrate))
+    logging.info("--------r:{}--------".format(args.r))
+    logging.info("--------missrate:{}--------".format(args.missrate))
     logging.info("******** PreTraining begin ********")
     optimizer_pretrain = torch.optim.Adam(decoder_model.parameters(), lr=args.lr_pre)
     fea_emb = pretrain(decoder_model, optimizer_pretrain, args, device, X_com, Y_com, X, Y)
