@@ -20,7 +20,9 @@ from utils import get_Similarity, euclidean_dist
 import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+
 matplotlib.use('Agg')
+
 
 def seed_everything(SEED=42):
     random.seed(SEED)
@@ -29,6 +31,7 @@ def seed_everything(SEED=42):
     torch.cuda.manual_seed(SEED)
     torch.cuda.manual_seed_all(SEED)
     torch.backends.cudnn.benchmark = True  # keep True if all the input have same size.
+
 
 def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
     train_dataset = TrainDataset_Com(X_com, Y_com)
@@ -55,7 +58,6 @@ def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
             tot_loss += loss.item()
         # print('Epoch {}'.format(epoch + 1), 'Loss:{:.6f}'.format(tot_loss / len(train_loader)))
 
-   
     fea_emb = [[] for _ in range(args.V)]
 
     all_dataset = TrainDataset_Com(X, Y)
@@ -77,7 +79,7 @@ def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
     return fea_emb
 
 
-def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_Num, missindex, final_batch, alpha, r):
+def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_Num, missindex, final_batch, r):
     train_dataset = TrainDataset_All(X, Y, Miss_vecs)
     batch_sampler = Data_Sampler(train_dataset, shuffle=True, batch_size=args.Batch_Rob, drop_last=True)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_sampler=batch_sampler)
@@ -250,7 +252,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
                     for v in range(args.V):
                         imfu[v] = Proto_Align[v][indices[0]]
                         bc = bc + Proto_Align[v][indices[0]]
-                    bc = bc/args.V
+                    bc = bc / args.V
                     xs[v][i] = bc
 
         for v in range(args.V):
@@ -259,6 +261,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
         fea_final[v] = torch.tensor(fea_final[v])
 
     return fea_final, epoch_time
+
 
 """  python main.py --i_d 0 --missrate 0.4 --protorate 0.3 --r 0.5"""
 i_d = {
@@ -301,7 +304,7 @@ parser.add_argument('--Batch_Rob', default=Batch_Rob, type=int)
 parser.add_argument('--lr_pre', default=lr_pre, type=float)
 parser.add_argument('--lr_align', default=lr_align, type=float)
 parser.add_argument('--para_loss', default=para_loss, type=float)
-parser.add_argument('--alpha', default=alpha, type=float)
+
 parser.add_argument('--pretrain_epochs', default=pre_epochs, type=int)
 parser.add_argument('--ProtoRobs_epochs', default=ProtoRobs_epochs, type=int)
 parser.add_argument("--feature_dim", default=feature_dim)
@@ -334,9 +337,7 @@ def main():
     fh = logging.FileHandler(os.path.join(path, log_filename))
     fh.setFormatter(logging.Formatter(log_format))
     logging.getLogger().addHandler(fh)
-    missrate = 0.3
-    r = 0.5
-    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, missrate)  # 加载数据
+    X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)  # 加载数据
     Miss_vecs = []
     for v in range(args.V):
         Miss_vecs.append(missindex[:, v])
@@ -366,7 +367,7 @@ def main():
     for epoch in range(args.ProtoRobs_epochs):
 
         fea_end, epoch_time = train_align(decoder_model, optimizer_align, args, device, X, Y, Miss_vecs, proto_Num,
-                                          missindex, final_batch, alpha, r)
+                                          missindex, final_batch, args.r)
         train_time += epoch_time
         for v in range(args.V):
             fea_end[v] = fea_end[v].cpu()
@@ -381,7 +382,6 @@ def main():
 
         acc, nmi, purity, fscore, precision, recall, ari = evaluate(Labels, pred_final)
         if epoch % 1 == 0:
-
             print(epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100)
             list = [epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100]
             data = pd.DataFrame([list])
