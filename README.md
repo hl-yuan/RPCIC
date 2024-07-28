@@ -16,7 +16,7 @@ munkres>=1.1.4
 
 ## Datasets
 
-You can find the dataset we used in the paper at [Quark](https://pan.quark.cn/s/8d8c394501f7).
+You can find the datasets used in the paper at [Quark](https://pan.quark.cn/s/8d8c394501f7).
 
 ## Training
 
