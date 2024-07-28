@@ -14,7 +14,7 @@ munkres>=1.1.4
 
 ## Datasets
 
-The Caltech101_7, HandWritten datasets are placed in the "Datasets" folder. 
+You can find the dataset we used in the paper at [Quark](https://pan.quark.cn/s/8d8c394501f7).
 
 ## Usage
 
