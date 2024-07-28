@@ -55,7 +55,7 @@ def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
             tot_loss += loss.item()
         # print('Epoch {}'.format(epoch + 1), 'Loss:{:.6f}'.format(tot_loss / len(train_loader)))
 
-    # 初始化 fea_emb 为一个包含空列表的列表
+   
     fea_emb = [[] for _ in range(args.V)]
 
     all_dataset = TrainDataset_Com(X, Y)
@@ -260,7 +260,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
 
     return fea_final, epoch_time
 
-"""  python main.py --i_d 0 --protorate 0.4 """
+"""  python main.py --i_d 0 --missrate 0.4 --protorate 0.3 --r 0.5"""
 i_d = {
     0: "Caltech101_7",
     1: "LandUse_21",
@@ -275,11 +275,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 pre_epochs = 200
 ProtoRobs_epochs = 100
 protorate = 0.3
+missrate = 0.3
+r = 0.5
 lr_pre = 0.0005
 lr_align = 0.0001
 para_loss = [1e-4, 1e-2]
-
-alpha = 0
 feature_dim = 256
 Batch = 256
 Batch_Rob = 256
@@ -288,6 +288,8 @@ seed_everything(42)
 parser = argparse.ArgumentParser(description='main_each_epoch')
 parser.add_argument('--i_d', type=int, default='0')
 parser.add_argument("--protorate", default=protorate, type=float)
+parser.add_argument("--r", default=r, type=float)
+parser.add_argument("--missrate", default=missrate, type=float)
 args = parser.parse_args()
 i_d = i_d[args.i_d]
 print(i_d)
