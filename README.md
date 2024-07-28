@@ -18,13 +18,9 @@ The Caltech101_7, HandWritten datasets are placed in "Datasets" folder.
 
 ## Usage
 
-The code includes:
-
-- an example implementation of the model,
-- an example clustering task for different missing rates.
-
+Run the code by
 ```bash
-python main.py --i_d 0
+python main.py --i_d 0 
 ```
 
 
