@@ -22,5 +22,7 @@ Run the code by
 ```bash
 python main.py --i_d 0 
 ```
+## Citation
 
+If you find our work useful in your research, please consider citing:
 
