@@ -14,7 +14,7 @@ munkres>=1.1.4
 
 ## Datasets
 
-The Caltech101_7, HandWritten datasets are placed in "Datasets" folder. 
+The Caltech101_7, HandWritten datasets are placed in the "Datasets" folder. 
 
 ## Usage
 
