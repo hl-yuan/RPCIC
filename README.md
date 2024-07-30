@@ -28,3 +28,10 @@ python main.py --i_d 0 --missrate 0.3
 
 If you find our work useful in your research, please consider citing:
 
+```latex
+@inproceedings{yuan2024robust,
+  title={Robust Prototype Completion for Incomplete Multi-view Clustering},
+  author={Yuan, Honglin and Lai, Shiyun and Li, Xingfeng and Dai, Jian and Sun, Yuan and Ren, Zhenwen},
+  booktitle={ACM Multimedia 2024}
+}
+```
