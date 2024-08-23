@@ -75,97 +75,102 @@ def pretrain(model, opt_pre, args, device, X_com, Y_com, X, Y):
     return fea_emb
 
 
-def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_Num, missindex, final_batch, r):
+def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_Num, missindex, final_batch, r, ProtoRobs_epochs):
     train_dataset = TrainDataset_All(X, Y, Miss_vecs)
     batch_sampler = Data_Sampler(train_dataset, shuffle=True, batch_size=args.Batch_Rob, drop_last=True)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_sampler=batch_sampler)
     time0 = time.time()
-    AllPrototypes = [torch.tensor([]) for _ in range(args.V)]
-    for batch_idx, (x, y, miss_vec) in enumerate(train_loader):
-        opt_align.zero_grad()
-        loss_fn = torch.nn.MSELoss().to(device)
-        proto_Noiserobust = Noise_robust_loss().to(device)
-        ins_contra = Cross_inscl_loss().to(device)
 
-        loss_list_recon = []
-        loss_list_ins = []
-        loss_list_Rob = []
-        Prototypes = [[] for _ in range(args.V)]
 
-        for v in range(args.V):
-            x[v] = torch.squeeze(x[v]).to(device)
-            y[v] = torch.squeeze(y[v]).to(device)
-            miss_vec[v] = torch.squeeze(miss_vec[v]).to(device)
+    t_progress = tqdm(range(ProtoRobs_epochs), desc='RobustTraining')
+    for epoch in t_progress:
+        AllPrototypes = [torch.tensor([]) for _ in range(args.V)]
+        for batch_idx, (x, y, miss_vec) in enumerate(train_loader):
+            opt_align.zero_grad()
+            loss_fn = torch.nn.MSELoss().to(device)
+            proto_Noiserobust = Noise_robust_loss().to(device)
+            ins_contra = Cross_inscl_loss().to(device)
 
-        z, xr = decoder_model(x)
-        for v in range(args.V):
-            loss_list_recon.append(loss_fn(x[v][miss_vec[v] > 0], xr[v][miss_vec[v] > 0]))
+            loss_list_recon = []
+            loss_list_ins = []
+            loss_list_Rob = []
+            Prototypes = [[] for _ in range(args.V)]
 
-        loss_recon = sum(loss_list_recon)
+            for v in range(args.V):
+                x[v] = torch.squeeze(x[v]).to(device)
+                y[v] = torch.squeeze(y[v]).to(device)
+                miss_vec[v] = torch.squeeze(miss_vec[v]).to(device)
 
-        for v1 in range(args.V):
-            v2_start = v1 + 1
-            for v2 in range(v2_start, args.V):
+            z, xr = decoder_model(x)
+            for v in range(args.V):
+                loss_list_recon.append(loss_fn(x[v][miss_vec[v] > 0], xr[v][miss_vec[v] > 0]))
+
+            loss_recon = sum(loss_list_recon)
+
+            for v1 in range(args.V):
+                v2_start = v1 + 1
+                for v2 in range(v2_start, args.V):
+                    align_index = []
+                    for i in range(x[0].shape[0]):
+                        if miss_vec[v1][i] == 1 and miss_vec[v2][i] == 1:
+                            align_index.append(i)
+
+                    z1 = z[v1][align_index]
+                    z2 = z[v2][align_index]
+                    l_inscontra = ins_contra(z1, z2)
+                    loss_list_ins.append(l_inscontra)
+
+            loss_ins_cl = sum(loss_list_ins)
+
+            for v1 in range(args.V):
                 align_index = []
                 for i in range(x[0].shape[0]):
-                    if miss_vec[v1][i] == 1 and miss_vec[v2][i] == 1:
+                    if miss_vec[v1][i] == 1:
                         align_index.append(i)
+                Feature = z[v1][align_index]
+                Pk = proto_Num[batch_idx]
+                Pk = int(Pk)
+                F = Feature[:, v1]
+                size = F.size()[0]
+                if Pk > size:
+                    Pk = size
+                initial_prototypes = Feature[:Pk]
 
-                z1 = z[v1][align_index]
-                z2 = z[v2][align_index]
-                l_inscontra = ins_contra(z1, z2)
-                loss_list_ins.append(l_inscontra)
+                max_iterations = 10
+                tolerance = 1e-5
+                for iteration in range(max_iterations):
+                    distances = torch.cdist(Feature, initial_prototypes).to(device)
+                    _, nearest_prototype_indices = torch.min(distances, dim=1)
+                    new_prototypes = torch.stack(
+                        [Feature[nearest_prototype_indices == i].mean(dim=0) for i in range(Pk)]).to(device)
+                    diff = torch.norm(new_prototypes - initial_prototypes, dim=1).max().to(device)
 
-        loss_ins_cl = sum(loss_list_ins)
+                    if max_iterations >= 10:
+                        initial_prototypes = Feature[:Pk]
+                    else:
+                        initial_prototypes = new_prototypes
+                    if diff < tolerance:
+                        break
+                Prototypes[v1] = initial_prototypes
+                initial_prototypes = initial_prototypes.to(device)
+                AllPrototypes[v1] = AllPrototypes[v1].to(device)
+                AllPrototypes[v1] = torch.cat((AllPrototypes[v1], initial_prototypes), dim=0)
 
-        for v1 in range(args.V):
-            align_index = []
-            for i in range(x[0].shape[0]):
-                if miss_vec[v1][i] == 1:
-                    align_index.append(i)
-            Feature = z[v1][align_index]
-            Pk = proto_Num[batch_idx]
-            Pk = int(Pk)
-            F = Feature[:, v1]
-            size = F.size()[0]
-            if Pk > size:
-                Pk = size
-            initial_prototypes = Feature[:Pk]
+            for v in range(args.V):
+                AllPrototypes[v] = torch.tensor(AllPrototypes[v]).to(device)
 
-            max_iterations = 10
-            tolerance = 1e-5
-            for iteration in range(max_iterations):
-                distances = torch.cdist(Feature, initial_prototypes)
-                _, nearest_prototype_indices = torch.min(distances, dim=1)
-                new_prototypes = torch.stack(
-                    [Feature[nearest_prototype_indices == i].mean(dim=0) for i in range(Pk)])
-                diff = torch.norm(new_prototypes - initial_prototypes, dim=1).max()
-                if max_iterations >= 10:
-                    initial_prototypes = Feature[:Pk]
-                else:
-                    initial_prototypes = new_prototypes
-                if diff < tolerance:
-                    break
-            Prototypes[v1] = initial_prototypes
-            initial_prototypes = initial_prototypes.to(device)
-            AllPrototypes[v1] = AllPrototypes[v1].to(device)
-            AllPrototypes[v1] = torch.cat((AllPrototypes[v1], initial_prototypes), dim=0)
-
-        for v in range(args.V):
-            AllPrototypes[v] = torch.tensor(AllPrototypes[v])
-
-        for v1 in range(args.V):
-            v2_start = v1 + 1
-            for v2 in range(v2_start, args.V):
-                prov1 = Prototypes[v1]
-                prov2 = Prototypes[v2]
-                l_Rob = proto_Noiserobust(prov1, prov2, r)
-                loss_list_Rob.append(l_Rob)
-        loss_pro_Rob = sum(loss_list_Rob)
-        """total_loss"""
-        loss_total = loss_recon + args.para_loss[0] * loss_ins_cl + args.para_loss[1] * loss_pro_Rob
-        loss_total.backward()
-        opt_align.step()
+            for v1 in range(args.V):
+                v2_start = v1 + 1
+                for v2 in range(v2_start, args.V):
+                    prov1 = Prototypes[v1]
+                    prov2 = Prototypes[v2]
+                    l_Rob = proto_Noiserobust(prov1, prov2, r)
+                    loss_list_Rob.append(l_Rob)
+            loss_pro_Rob = sum(loss_list_Rob)
+            """total_loss"""
+            loss_total = loss_recon + args.para_loss[0] * loss_ins_cl + args.para_loss[1] * loss_pro_Rob
+            loss_total.backward()
+            opt_align.step()
 
     fea_all = []
     for v in range(args.V):
@@ -205,6 +210,7 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
             Proto_Align[v1], Proto_Align[v2] = torch.from_numpy(np.array(align_out0)).to(device), torch.from_numpy(
                 np.array(align_out1)).to(device)
     epoch_time = time.time() - time0
+
     all_dataset2 = TrainDataset_Com(fea_all, Y)
     batch_sampler_all2 = Data_Sampler(all_dataset2, shuffle=False, batch_size=final_batch, drop_last=False)
     all_loader2 = torch.utils.data.DataLoader(dataset=all_dataset2, batch_sampler=batch_sampler_all2)
@@ -301,27 +307,7 @@ args = parser.parse_args()
 
 
 def main():
-    if not os.path.exists("./log/"):
-        os.mkdir("./log/")
-        if not os.path.exists('./log/' + str(data_para[1]) + '/'):
-            os.mkdir('./log/' + str(data_para[1]) + '/')
-    path = os.path.join("./log/" + str(data_para[1]) + '/')
-    if not os.path.exists(path):
-        os.makedirs(path)
 
-    log_format = '%(message)s'
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=log_format, datefmt='%m/%d %I:%M:%S %p')
-    current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
-    current_time = current_time.replace(":", "_")
-    log_filename = data_para[1] + "_protorate=" + str(
-        args.protorate) + "_time=" + current_time + ".csv"
-
-    df = pd.DataFrame(columns=['epoch', "acc", "nmi", "fscore", "ari", "recall", "precision"])
-    df.to_csv(path + log_filename, index=False)
-
-    fh = logging.FileHandler(os.path.join(path, log_filename))
-    fh.setFormatter(logging.Formatter(log_format))
-    logging.getLogger().addHandler(fh)
     X, Y, missindex, X_com, Y_com, index_com, index_incom = loader.load_data(args.dataset, args.missrate)
     Miss_vecs = []
     for v in range(args.V):
@@ -335,47 +321,35 @@ def main():
     proto_Num = [[] for _ in range(n)]
     for i in range(n):
         proto_Num[i] = c_num
-    logging.info(args)
-    logging.info("--------r:{}--------".format(args.r))
-    logging.info("--------missrate:{}--------".format(args.missrate))
-    logging.info("******** PreTraining begin ********")
+    print('+' * 30, ' Parameters ', '+' * 30)
+    print(args)
+    print('+' * 75)
     optimizer_pretrain = torch.optim.Adam(decoder_model.parameters(), lr=args.lr_pre)
+
     fea_emb = pretrain(decoder_model, optimizer_pretrain, args, device, X_com, Y_com, X, Y)
     optimizer_align = torch.optim.Adam(decoder_model.parameters(), lr=args.lr_align)
 
-    logging.info("******** RobustTraining begin ********")
-    acc_list, nmi_list, ari_list, fscore_list, recall_list, precision_list = [], [], [], [], [], []
+
     train_time = 0
+    fea_end, epoch_time = train_align(decoder_model, optimizer_align, args, device, X, Y, Miss_vecs, proto_Num,
+                                      missindex, final_batch, args.r,args.ProtoRobs_epochs)
+    train_time += epoch_time
+    for v in range(args.V):
+        fea_end[v] = fea_end[v].cpu()
+    Labels = Y[0]
+    estimator = KMeans(n_clusters=args.K)
+    fea_cluster = fea_end[0]
+    for i in range(1, len(fea_end)):
+        fea_cluster = np.concatenate((fea_cluster, fea_end[i]), axis=1)
 
-    for epoch in range(args.ProtoRobs_epochs):
+    estimator.fit(fea_cluster)
+    pred_final = estimator.labels_
 
-        fea_end, epoch_time = train_align(decoder_model, optimizer_align, args, device, X, Y, Miss_vecs, proto_Num,
-                                          missindex, final_batch, args.r)
-        train_time += epoch_time
-        for v in range(args.V):
-            fea_end[v] = fea_end[v].cpu()
-        Labels = Y[0]
-        estimator = KMeans(n_clusters=args.K)
-        fea_cluster = fea_end[0]
-        for i in range(1, len(fea_end)):
-            fea_cluster = np.concatenate((fea_cluster, fea_end[i]), axis=1)
+    acc, nmi, purity, fscore, precision, recall, ari = evaluate(Labels, pred_final)
 
-        estimator.fit(fea_cluster)
-        pred_final = estimator.labels_
+    print( 'acc=',acc * 100, 'nmi=',nmi * 100, 'fscore=',fscore * 100, 'ari=',ari * 100, 'recall=',recall * 100, 'precision=',precision * 100)
 
-        acc, nmi, purity, fscore, precision, recall, ari = evaluate(Labels, pred_final)
-        if epoch % 1 == 0:
-            print(epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100)
-            list = [epoch, acc * 100, nmi * 100, fscore * 100, ari * 100, recall * 100, precision * 100]
-            data = pd.DataFrame([list])
-            data.to_csv(path + log_filename, mode='a', header=False, index=False)
 
-        acc_list.append(acc * 100)
-        nmi_list.append(nmi * 100)
-        fscore_list.append(fscore * 100)
-        ari_list.append(ari * 100)
-        recall_list.append(recall * 100)
-        precision_list.append(precision * 100)
 
 
 if __name__ == '__main__':
