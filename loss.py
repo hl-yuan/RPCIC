@@ -34,5 +34,5 @@ class Noise_robust_loss(nn.Module):
         sim = (cos/tao).exp()
         pos = sim.diag()
         p = pos / sim.sum(1)
-        robust_loss = ((abs((1-p))**r) * ((-(torch.log(p)))**(1-r))).mean()
+        robust_loss = (((1-p)**r) * ((-(torch.log(p)))**(1-r))).mean()
         return robust_loss
