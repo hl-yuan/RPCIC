@@ -80,8 +80,6 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
     batch_sampler = Data_Sampler(train_dataset, shuffle=True, batch_size=args.Batch_Rob, drop_last=True)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_sampler=batch_sampler)
     time0 = time.time()
-
-
     t_progress = tqdm(range(ProtoRobs_epochs), desc='RobustTraining')
     for epoch in t_progress:
         AllPrototypes = [torch.tensor([]) for _ in range(args.V)]
@@ -263,22 +261,12 @@ def train_align(decoder_model, opt_align, args, device, X, Y, Miss_vecs, proto_N
 """  python main.py --i_d 0 --missrate 0.3 """
 i_d = {
     0: "Caltech101_7",
-    1: "LandUse_21",
-    2: "Scene_15",
-    3: "ALOI_100",
-    4: "YouTubeFace10_4Views",
-    5: "HandWritten",
-    6: "EMNIST_digits_4Views",
-    7: "AWA",
+    1: "HandWritten",
+    2: "ALOI_100",
+    3: "YouTubeFace10_4Views",
+
 }
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-lr_pre = 0.0005
-lr_align = 0.0001
-para_loss = [1e-4, 1e-2]
-feature_dim = 256
-Batch = 256
-Batch_Rob = 256
-final_batch = 256
 seed_everything(42)
 parser = argparse.ArgumentParser(description='main_each_epoch')
 parser.add_argument('--i_d', type=int, default='0')
@@ -291,18 +279,19 @@ print(i_d)
 my_data_dic = loader.ALL_data
 data_para = my_data_dic[i_d]
 parser.add_argument('--dataset', default=data_para)
-parser.add_argument('--batch_size', default=Batch, type=int)
-parser.add_argument('--Batch_Rob', default=Batch_Rob, type=int)
-parser.add_argument('--lr_pre', default=lr_pre, type=float)
-parser.add_argument('--lr_align', default=lr_align, type=float)
-parser.add_argument('--para_loss', default=para_loss, type=float)
+parser.add_argument('--batch_size', default=256, type=int)
+parser.add_argument('--Batch_Rob', default=256, type=int)
+parser.add_argument('--lr_pre', default=0.0005, type=float)
+parser.add_argument('--lr_align', default=0.0001, type=float)
 parser.add_argument('--pretrain_epochs', default=200, type=int)
 parser.add_argument('--ProtoRobs_epochs', default=100, type=int)
-parser.add_argument("--feature_dim", default=feature_dim)
+parser.add_argument("--feature_dim", default=256)
+parser.add_argument("--final_batch", default=256)
 parser.add_argument("--V", default=data_para['V'])
 parser.add_argument("--K", default=data_para['K'])
 parser.add_argument("--N", default=data_para['N'])
 parser.add_argument("--view_dims", default=data_para['n_input'])
+parser.add_argument('--para_loss', default=data_para['para_loss'])
 args = parser.parse_args()
 
 
@@ -315,7 +304,7 @@ def main():
     decoder_model = Network(args.V, args.view_dims, args.feature_dim).to(device)
 
     Protonum = len(X_com[0])
-    n = args.N // Batch_Rob
+    n = args.N // args.Batch_Rob
     Num_C = (Protonum * args.protorate)
     c_num = Num_C // n
     proto_Num = [[] for _ in range(n)]
@@ -332,7 +321,7 @@ def main():
 
     train_time = 0
     fea_end, epoch_time = train_align(decoder_model, optimizer_align, args, device, X, Y, Miss_vecs, proto_Num,
-                                      missindex, final_batch, args.r,args.ProtoRobs_epochs)
+                                      missindex, args.final_batch, args.r,args.ProtoRobs_epochs)
     train_time += epoch_time
     for v in range(args.V):
         fea_end[v] = fea_end[v].cpu()
