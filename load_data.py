@@ -11,15 +11,10 @@ warnings.filterwarnings("ignore")
 
 # 需要h5py读取
 ALL_data = dict(
-    Caltech101_7= {1: 'Caltech101_7', 'N': 1400, 'K': 7, 'V': 5, 'n_input': [1984, 512, 928, 254, 40]},
-    HandWritten = {1: 'handwritten1031_v73', 'N': 2000, 'K': 10, 'V': 6, 'n_input': [240, 76, 216, 47, 64, 6]},
-    Caltech101_20={1: 'Caltech101-20_v73', 'N': 2386, 'K': 20, 'V': 6, 'n_input': [48, 40, 254, 1984, 512, 928]},
-    LandUse_21 = {1: 'LandUse_21_v73','N': 2100, 'K': 21, 'V': 3, 'n_input': [20,59,40]},
-    Scene_15 = {1: 'Scene_15_v73','N': 4485, 'K': 15, 'V': 3, 'n_input': [20,59,40]},
-    ALOI_100 = {1: 'ALOI_100_7', 'N': 10800, 'K': 100, 'V': 4, 'n_input': [77, 13, 64, 125]},
-    YouTubeFace10_4Views={1: 'YTF10_4', 'N': 38654, 'K': 10, 'V': 4, 'n_input': [944, 576, 512, 640]},
-    AWA={1: 'AWA_73', 'N': 10158, 'K': 50, 'V': 7, 'n_input': [2688, 2000, 2000, 2000, 2000, 4096,4096]},
-    EMNIST_digits_4Views={1: 'EMNIST_digits_4Views_v73', 'N': 280000, 'K': 10, 'V': 4, 'n_input': [944, 576, 512, 640]}
+    Caltech101_7= {1: 'Caltech101_7', 'N': 1400, 'K': 7, 'V': 5, 'n_input': [1984, 512, 928, 254, 40],'para_loss': [1e-4, 1e-2]},
+    HandWritten = {1: 'handwritten1031_v73', 'N': 2000, 'K': 10, 'V': 6, 'n_input': [240, 76, 216, 47, 64, 6],'para_loss': [1e-4, 1e-2]},
+    ALOI_100 = {1: 'ALOI_100_7', 'N': 10800, 'K': 100, 'V': 4, 'n_input': [77, 13, 64, 125],'para_loss': [1e-3, 1e-3]},
+    YouTubeFace10_4Views={1: 'YTF10_4', 'N': 38654, 'K': 10, 'V': 4, 'n_input': [944, 576, 512, 640],'para_loss': [1e-4, 1e-2]}
 )
 
 
